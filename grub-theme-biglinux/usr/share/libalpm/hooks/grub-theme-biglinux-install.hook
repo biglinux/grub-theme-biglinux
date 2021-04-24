@@ -1,0 +1,9 @@
+[Trigger]
+Type = Package
+Operation = Install
+Target =  grub-theme-biglinux
+
+[Action]
+Description = Enable grub-theme-biglinux
+When = PostTransaction
+Exec = /usr/share/libalpm/scripts/grub-theme-biglinux-install

@@ -13,4 +13,5 @@ md5sums=(SKIP)
 
 package() {
     cp -r "${srcdir}/grub-theme-biglinux/grub-theme-biglinux/boot/" "${pkgdir}/"
+    cp -r "${srcdir}/grub-theme-biglinux/grub-theme-biglinux/usr/" "${pkgdir}/"
 }
