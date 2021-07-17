@@ -2,7 +2,7 @@
 
 # Add bootsplash-biglinux in grub
 if [ "$(grep '/boot/grub/themes/biglinux/theme.txt' /etc/default/grub)" = "" ]; then
-    sed -i 's|.*GRUB_THEME=".*|GRUB_THEME="/boot/grub/themes/biglinux/theme.txt"|g' /etc/default/grub
+	sed -i 's|^ *\bGRUB_THEME\b *=.*|GRUB_THEME="/boot/grub/themes/biglinux/theme.txt"|' /etc/default/grub
 fi
 
 update-grub
