@@ -58,7 +58,7 @@ terminal-border: "0"
     item_font = "Lato Regular 24"
     item_color = "#999"
     selected_item_font = "Lato Regular 24"
-    selected_item_color= "#fff"
+    selected_item_color= "#0ff"
 
     item_height = 30
     item_padding = 0
