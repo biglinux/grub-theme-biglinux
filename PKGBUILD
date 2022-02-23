@@ -2,7 +2,7 @@
 
 pkgname=grub-theme-biglinux
 pkgver=1.0.0
-pkgrel=1
+pkgrel=2
 arch=('any')
 license=('GPL')
 url="https://github.com/biglinux/grub-theme-biglinux"
