@@ -4,7 +4,7 @@
 title-text: ""
 desktop-image: "background.png"
 desktop-color: "#000000"
-terminal-font: "Terminus Regular 14"
+terminal-font: "Terminus Bold 22"
 terminal-box: "terminal_box_*.png"
 terminal-left: "0"
 terminal-top: "0"
@@ -22,7 +22,7 @@ terminal-border: "0"
     width = 100
     show_text = true
     text = ""
-    font = "Terminus Regular 14"
+    font = "Terminus Bold 22"
     bar_style       = "progress_*.png"
     highlight_style = "progress_hl_*.png"
 }
@@ -41,7 +41,7 @@ terminal-border: "0"
     width = 800
     height = 62%
   
-    item_font = "Terminus Regular 14"
+    item_font = "Terminus Bold 22"
     item_color = "#ececec"
   
     selected_item_color = "#ececec"
