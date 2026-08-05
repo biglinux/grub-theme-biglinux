@@ -16,6 +16,10 @@
 # stock GRUB prompt in place: plain, but working.
 set -uo pipefail
 
+# A way to keep this out of the way while building an image or debugging a
+# machine, where rewriting the host bootloader is never what is wanted.
+[[ -e /etc/grub-biglinux-hooks.disabled ]] && exit 0
+
 # Marks our own images so the script can tell them from the stock ones.
 signature=biglinux-crypt-prompt
 
@@ -34,6 +38,9 @@ for tool in grub-mkimage grub-script-check cryptsetup msgunfmt msgfmt gettext fi
 	command -v "$tool" >/dev/null || bail "$tool is unavailable"
 done
 
+# A BIOS boot has no EFI image to replace.
+[[ -d /sys/firmware/efi ]] || exit 0
+
 # The prompt only exists when GRUB has to unlock the root device itself, and
 # the UUID has to come from that device: other LUKS volumes may be attached.
 root_source=$(findmnt -no SOURCE /)
@@ -47,10 +54,31 @@ backing_device=$(cryptsetup status "$root_mapper" 2>/dev/null |
 crypt_uuid=$(cryptsetup luksUUID "$backing_device" 2>/dev/null | tr -d -)
 [[ -n $crypt_uuid ]] || bail "no LUKS UUID found for $backing_device"
 
-# A signed bootloader must not be replaced by an image we cannot sign. sbctl
-# resigns in its own hook, which runs after this one.
-if [[ $(mokutil --sb-state 2>/dev/null) == *enabled* ]] && ! command -v sbctl >/dev/null; then
-	bail 'Secure Boot is enabled and no signing tool is available'
+# The image points GRUB at /boot/grub inside the encrypted root, so that has to
+# be where /boot/grub really is. It is not when /boot is a filesystem or a
+# subvolume of its own, and it is not inside an installer chroot, where findmnt
+# answers about the host instead of the system being installed. Both would
+# unlock the disk and then drop to the grub> prompt, which is the failure this
+# whole script exists to avoid.
+[[ $(findmnt -no SOURCE --target "$theme_directory" 2>/dev/null) == "$(findmnt -no SOURCE --target / 2>/dev/null)" ]] ||
+	bail "$theme_directory is not on the root filesystem the image would point at"
+
+# A signed bootloader must not be replaced by an image we cannot sign, so this
+# has to fail closed. Asking mokutil did the opposite: it is not installed by
+# default, and its absence read as "Secure Boot is off". The firmware itself
+# always answers - four bytes of EFI attributes, then the flag.
+secure_boot=unknown
+for variable in /sys/firmware/efi/efivars/SecureBoot-*; do
+	[[ -r $variable ]] || continue
+	case $(od -An -tu1 -j4 -N1 "$variable" | tr -d '[:space:]') in
+	0) secure_boot=disabled ;;
+	1) secure_boot=enabled ;;
+	esac
+	break
+done
+# sbctl resigns in its own hook, which runs after this one.
+if [[ $secure_boot != disabled ]] && ! command -v sbctl >/dev/null; then
+	bail "Secure Boot is $secure_boot and no signing tool is available"
 fi
 
 [[ -f $artwork ]] || bail "$artwork is missing"
@@ -58,14 +86,33 @@ fi
 
 # Pick the directory holding our bootloader: an ESP shared with Windows also
 # has Microsoft/, and the order find returns is not alphabetical.
-target=
+candidates=()
 while IFS= read -r candidate; do
 	[[ -f $candidate ]] || continue
 	grep -aqF grub "$candidate" || continue
-	target=$candidate
-	break
+	candidates+=("$candidate")
 done < <(find "$esp/EFI" -mindepth 2 -maxdepth 2 -name 'grubx64.efi' 2>/dev/null | sort)
-[[ -n $target ]] || bail 'no GRUB EFI binary was found on the ESP'
+
+case ${#candidates[@]} in
+0) bail 'no GRUB EFI binary was found on the ESP' ;;
+1) target=${candidates[0]} ;;
+*)
+	# An ESP shared with another Linux holds that system's GRUB too, and it
+	# sorts ahead of ours as often as not. Replacing it would point its boot
+	# entry at our encrypted root. Ours is the one that already knows this
+	# volume: grub-install embeds the LUKS UUID it has to unlock, and after
+	# the first run our own signature is there as well.
+	target=
+	for candidate in "${candidates[@]}"; do
+		if grep -aqF "$signature" "$candidate" || grep -aqF "$crypt_uuid" "$candidate"; then
+			target=$candidate
+			break
+		fi
+	done
+	[[ -n $target ]] ||
+		bail 'the ESP holds several GRUB binaries and none of them is identifiably ours'
+	;;
+esac
 
 # On Btrfs the subvolume is part of the path GRUB has to reach after unlocking.
 subvolume=$(findmnt -no OPTIONS --target / | grep -o 'subvol=[^,]*' | cut -d= -f2)
@@ -167,51 +214,101 @@ prompt_indent=${prompt_indent%%[! ]*}
 grub-script-check "$workspace/early-grub.cfg" >/dev/null 2>&1 ||
 	bail 'the generated early configuration is not valid GRUB script'
 
-# grub-script-check only sees syntax. A prefix that resolves to nothing is
-# still valid script and boots straight into the grub> prompt, so check that
-# the device really is spelled the way GRUB expects it.
-grep -qF "set prefix=(\$root)${subvolume:-}/boot/grub" "$workspace/early-grub.cfg" ||
-	bail 'the generated prefix is not in the (device)/path form GRUB resolves'
-
 tar cf "$workspace/memdisk.tar" -C "$workspace" font.pf2 background.png locale ||
 	bail 'the memdisk could not be packed'
 
 # Everything used before /boot is reachable has to live in the image: the
 # graphics stack for the prompt, the crypto stack for LUKS2 with Argon2id and
 # every filesystem the installer can put /boot on.
+modules=(
+	memdisk tar configfile normal search search_fs_uuid part_gpt part_msdos
+	btrfs ext2 xfs f2fs fat cryptodisk luks luks2 argon2 pbkdf2
+	gcry_rijndael gcry_sha256 gcry_sha512
+	all_video efi_gop efi_uga video_bochs video_cirrus video
+	gfxterm gfxterm_background font png gettext
+	echo test loadenv linux halt reboot minicmd
+)
+
+# The list above covers the defaults the installer produces. A volume built
+# with another cipher or hash needs its own module, and without it GRUB rejects
+# the right passphrase forever - the stock image avoids this by probing the
+# device, so this has to as well.
+dump=$(cryptsetup luksDump "$backing_device" 2>/dev/null)
+for algorithm in serpent:gcry_serpent twofish:gcry_twofish camellia:gcry_camellia \
+	sha1:gcry_sha1 ripemd160:gcry_rmd160 whirlpool:gcry_whirlpool; do
+	[[ $dump == *"${algorithm%%:*}"* ]] && modules+=("${algorithm##*:}")
+done
+
+# GRUB reads the early configuration before it can load anything, so every
+# module it names has to be inside the image already. An insmod of a module
+# that was left out stops the boot exactly where the passphrase is asked.
+while read -r module; do
+	[[ " ${modules[*]} " == *" $module "* ]] ||
+		bail "the early configuration loads $module, which is not embedded in the image"
+done < <(awk '$1 == "insmod" { print $2 }' "$workspace/early-grub.cfg")
+
 grub-mkimage -c "$workspace/early-grub.cfg" -o "$workspace/grubx64.efi" \
 	-O x86_64-efi -m "$workspace/memdisk.tar" -p "$prefix" \
-	memdisk tar configfile normal search search_fs_uuid part_gpt part_msdos \
-	btrfs ext2 xfs f2fs fat cryptodisk luks luks2 argon2 pbkdf2 \
-	gcry_rijndael gcry_sha256 gcry_sha512 \
-	all_video efi_gop efi_uga video_bochs video_cirrus video \
-	gfxterm gfxterm_background font png gettext \
-	echo test loadenv linux halt reboot minicmd 2>/dev/null ||
-	bail 'grub-mkimage failed'
+	"${modules[@]}" 2>"$workspace/mkimage.log" ||
+	bail "grub-mkimage failed: $(tr '\n' ' ' <"$workspace/mkimage.log")"
 
 # An image that cannot unlock the disk is worse than no theme: check that the
 # crypto path and the prefix really made it in before trusting this file.
-for marker in cryptodisk luks2 argon2 btrfs ext2 "$crypt_uuid" "$signature"; do
+#
+# The prefix is the one that matters most. It has to name the device in
+# parentheses, exactly as grub.cfg writes it, because GRUB drops the
+# parentheses when assigning to a variable - the earlier version of this script
+# wrote a bare $root, and the machine unlocked the disk and then sat at the
+# grub> prompt. Reading it back out of the built image is the only check that
+# proves what GRUB will actually see.
+for marker in cryptodisk luks2 argon2 btrfs ext2 "$crypt_uuid" "$signature" "$prefix"; do
 	grep -aqF "$marker" "$workspace/grubx64.efi" ||
 		bail "the generated image is missing $marker"
 done
 image_size=$(stat -c '%s' "$workspace/grubx64.efi")
 ((image_size > 400000)) || bail 'the generated image is implausibly small'
 
-# Keep the stock image as the way back, but never overwrite that backup with
-# one of ours: after the first run the target is already themed.
-if ! grep -aqF "$signature" "$target"; then
-	cp -f "$target" "$target.pre-biglinux" || bail 'the current image could not be backed up'
-fi
-cp -f "$workspace/grubx64.efi" "$target" || bail 'the themed image could not be installed'
+# Everything above happened in a temporary directory. What follows touches the
+# firmware's own copy of the bootloader, so it is the only part that can leave
+# the machine unable to start.
+#
+# The new image is written beside the target and put in place by rename, so the
+# file the firmware loads is either the old one or the new one and never half of
+# either. The ESP is FAT and often the 100 MB one Windows created, so the order
+# matters: writing the backup first is what could fill the filesystem and then
+# truncate the very loader the backup was meant to protect.
+install_image() {
+	local destination=$1 staged=$1.biglinux-new
+	cp -f "$workspace/grubx64.efi" "$staged" || return 1
+	# Keep the stock image as the way back, but never overwrite that backup
+	# with one of ours: after the first run the target is already themed.
+	if ! grep -aqF "$signature" "$destination"; then
+		cp -f "$destination" "$destination.pre-biglinux" || {
+			rm -f "$staged"
+			return 1
+		}
+	fi
+	# FAT has no journal, so the bytes have to be on the disk before the name
+	# points at them.
+	sync "$staged"
+	mv -f "$staged" "$destination" || {
+		rm -f "$staged"
+		return 1
+	}
+	sync "${destination%/*}"
+}
 
-# The removable fallback is only ours to replace when it is also GRUB.
+install_image "$target" || {
+	printf '%s\n' "grub-theme-biglinux-crypt: the themed image could not be installed, $target is unchanged" >&2
+	exit 1
+}
+
+# The removable fallback is only ours to replace when it is also GRUB. Its
+# failure is not fatal: the machine still boots through the entry above.
 fallback=$esp/EFI/boot/bootx64.efi
 if [[ -f $fallback ]] && grep -aqF grub "$fallback"; then
-	if ! grep -aqF "$signature" "$fallback"; then
-		cp -f "$fallback" "$fallback.pre-biglinux"
-	fi
-	cp -f "$workspace/grubx64.efi" "$fallback"
+	install_image "$fallback" ||
+		printf '%s\n' "grub-theme-biglinux-crypt: $fallback is unchanged" >&2
 fi
 
 printf '%s\n' "grub-theme-biglinux-crypt: encryption prompt written to $target"
