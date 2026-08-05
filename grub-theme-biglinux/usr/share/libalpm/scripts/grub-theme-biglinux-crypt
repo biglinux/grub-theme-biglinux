@@ -128,6 +128,23 @@ language=${language%%.*}
 [[ -n $language ]] || language=en
 export LANG=$language.UTF-8
 
+# The boot menu has GRUB's unicode font loaded next to the theme's and falls
+# back glyph by glyph. This prompt has only what is packed into it, so a
+# language Terminus cannot draw would face a row of empty boxes - worse than
+# reading the message in English. Terminus does cover Latin, Cyrillic, Greek
+# and Hebrew; it has no CJK.
+case $language in
+ja | ko | zh*)
+	if [[ -f /usr/share/grub/unicode.pf2 ]]; then
+		font=/usr/share/grub/unicode.pf2
+	else
+		# Better plain English in a font that draws than boxes.
+		export LANG=en.UTF-8
+		language=en
+	fi
+	;;
+esac
+
 workspace=$(mktemp -d) || bail 'no temporary directory available'
 trap 'rm -rf "$workspace"' EXIT
 mkdir -p "$workspace/locale" || bail 'the temporary directory is not writable'
