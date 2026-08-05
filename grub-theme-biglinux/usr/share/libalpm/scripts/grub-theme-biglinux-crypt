@@ -1,0 +1,217 @@
+#!/usr/bin/env bash
+# Themes the GRUB passphrase prompt of an encrypted install.
+#
+# When /boot lives inside the LUKS volume, GRUB itself asks for the passphrase
+# before it can read grub.cfg, so the boot menu theme cannot apply: the prompt
+# is drawn as plain text in the top left corner. The prompt comes from the core
+# image, so the only way to style it is to rebuild that image with a font, the
+# artwork and the translations embedded.
+#
+# grub-install recreates the core image on every grub upgrade and overwrites
+# this one, which is why the hook calls this script again afterwards.
+#
+# Nothing here is worth an unbootable machine. The image is built and verified
+# in a temporary directory, and the one on the ESP is only replaced once that
+# copy proves usable. Any doubt and the script gives up quietly, leaving the
+# stock GRUB prompt in place: plain, but working.
+set -uo pipefail
+
+# Marks our own images so the script can tell them from the stock ones.
+signature=biglinux-crypt-prompt
+
+# Giving up is the safe outcome, so it is not a failure for the transaction.
+bail() {
+	printf '%s\n' "grub-theme-biglinux-crypt: $1, keeping the stock GRUB prompt" >&2
+	exit 0
+}
+
+theme_directory=/boot/grub/themes/biglinux
+artwork=$theme_directory/crypt-background.png
+font=/usr/share/grub/ter-u20n.pf2
+esp=/boot/efi
+
+for tool in grub-mkimage grub-script-check cryptsetup msgunfmt msgfmt gettext findmnt tar awk; do
+	command -v "$tool" >/dev/null || bail "$tool is unavailable"
+done
+
+# The prompt only exists when GRUB has to unlock the root device itself, and
+# the UUID has to come from that device: other LUKS volumes may be attached.
+root_source=$(findmnt -no SOURCE /)
+# On Btrfs findmnt appends the subvolume, as in /dev/mapper/luks-x[/@].
+root_source=${root_source%%[*}
+root_mapper=${root_source##*/}
+[[ -e /dev/mapper/$root_mapper ]] || exit 0
+backing_device=$(cryptsetup status "$root_mapper" 2>/dev/null |
+	awk '$1 == "device:" { print $2; exit }')
+[[ -n $backing_device ]] || exit 0
+crypt_uuid=$(cryptsetup luksUUID "$backing_device" 2>/dev/null | tr -d -)
+[[ -n $crypt_uuid ]] || bail "no LUKS UUID found for $backing_device"
+
+# A signed bootloader must not be replaced by an image we cannot sign. sbctl
+# resigns in its own hook, which runs after this one.
+if [[ $(mokutil --sb-state 2>/dev/null) == *enabled* ]] && ! command -v sbctl >/dev/null; then
+	bail 'Secure Boot is enabled and no signing tool is available'
+fi
+
+[[ -f $artwork ]] || bail "$artwork is missing"
+[[ -f $font ]] || bail "$font is missing"
+
+# Pick the directory holding our bootloader: an ESP shared with Windows also
+# has Microsoft/, and the order find returns is not alphabetical.
+target=
+while IFS= read -r candidate; do
+	[[ -f $candidate ]] || continue
+	grep -aqF grub "$candidate" || continue
+	target=$candidate
+	break
+done < <(find "$esp/EFI" -mindepth 2 -maxdepth 2 -name 'grubx64.efi' 2>/dev/null | sort)
+[[ -n $target ]] || bail 'no GRUB EFI binary was found on the ESP'
+
+# On Btrfs the subvolume is part of the path GRUB has to reach after unlocking.
+subvolume=$(findmnt -no OPTIONS --target / | grep -o 'subvol=[^,]*' | cut -d= -f2)
+prefix="(cryptouuid/$crypt_uuid)${subvolume:-}/boot/grub"
+
+export TEXTDOMAINDIR=/usr/share/locale
+export TEXTDOMAIN=grub-theme-biglinux
+# The prompt belongs to the machine, not to whoever happens to run pacman: an
+# upgrade over SSH carries that person's LANG, which may be another language.
+language=$(awk -F= '$1 == "LANG" { gsub(/"/, "", $2); print $2; exit }' /etc/locale.conf 2>/dev/null)
+language=${language:-${LANG:-}}
+language=${language%%.*}
+[[ -n $language ]] || language=en
+export LANG=$language.UTF-8
+
+workspace=$(mktemp -d) || bail 'no temporary directory available'
+trap 'rm -rf "$workspace"' EXIT
+mkdir -p "$workspace/locale" || bail 'the temporary directory is not writable'
+cp "$font" "$workspace/font.pf2" || bail 'the font could not be copied'
+cp "$artwork" "$workspace/background.png" || bail 'the artwork could not be copied'
+
+# GRUB ships catalogs for its own strings. Reuse the one matching the system
+# and rewrite the passphrase prompt: its default spells out the disk UUID,
+# which means nothing to the person typing the password.
+catalog=/boot/grub/locale/$language.mo
+# GRUB has no pt_BR for every language it has a pt for, and none at all for
+# English, where its own strings are already the source text.
+[[ -f $catalog ]] || catalog=/boot/grub/locale/${language%%_*}.mo
+if [[ -f $catalog ]] && msgunfmt "$catalog" >"$workspace/catalog.po"; then
+	# Replace the translation in place. The c-format flag has to go with it:
+	# it would make msgfmt reject a translation that drops the arguments.
+	awk -v replacement="$(gettext -- 'Encryption password: ')" '
+		/^#, c-format$/ { flag = $0; next }
+		/^msgid "Enter passphrase for/ {
+			print; print "msgstr \"" replacement "\""; flag = ""; inside = 1; next
+		}
+		inside && NF == 0 { inside = 0; print; next }
+		inside { next }
+		{ if (flag != "") { print flag; flag = "" } print }
+	' "$workspace/catalog.po" >"$workspace/prompt.po"
+else
+	# Without a catalog GRUB would print its own prompt, which spells out the
+	# device and its UUID and overruns the card. One entry is enough to
+	# replace it; the rest of GRUB stays in its original language.
+	{
+		printf '%s\n' 'msgid ""' 'msgstr ""' \
+			'"Content-Type: text/plain; charset=UTF-8\\n"' ''
+		printf '%s\n' 'msgid "Enter passphrase for %s%s%s (%s): "'
+		printf 'msgstr "%s"\n' "$(gettext -- 'Encryption password: ')"
+	} >"$workspace/prompt.po"
+fi
+msgfmt -o "$workspace/locale/$language.mo" "$workspace/prompt.po" ||
+	bail 'the translated prompt could not be compiled'
+
+# Terminus is 10 pixels wide at this size and the prompt is drawn 1024 pixels
+# wide, so centering is a matter of counting characters.
+center() {
+	local text=$1 length
+	length=$(printf '%s' "$text" | LC_ALL=C.UTF-8 wc -m)
+	printf '%*s%s' $(((102 - length) / 2)) '' "$text"
+}
+
+# GRUB prints the prompt itself, right after this indentation, so the text
+# belongs to the catalog above and must not be repeated here.
+prompt_indent=$(center "$(gettext -- 'Encryption password: ')")
+prompt_indent=${prompt_indent%%[! ]*}
+
+# $root and $prefix belong to GRUB and are expanded at boot, not by the shell.
+# shellcheck disable=SC2016
+{
+	printf '# %s\n' "$signature"
+	printf '%s\n' 'set root=(memdisk)' 'set prefix=($root)/'
+	printf 'insmod %s\n' all_video efi_gop efi_uga video_bochs video_cirrus video \
+		gfxterm gfxterm_background font png gettext
+	printf '%s\n' 'loadfont /font.pf2' 'set locale_dir=($root)/locale' \
+		"set lang=$language" 'set gfxmode=1024x768,auto' 'terminal_output gfxterm' \
+		'background_image -m stretch /background.png'
+	printf '%s\n' 'echo ""' 'echo ""' 'echo ""' 'echo ""' 'echo ""' 'echo ""' 'echo ""' \
+		'echo ""' 'echo ""' 'echo ""' 'echo ""' 'echo ""' 'echo ""'
+	printf 'echo "%s"\n' "$(center "$(gettext -- 'This disk is protected by encryption')")"
+	printf '%s\n' 'echo ""'
+	printf 'echo "%s"\n' "$(center "$(gettext -- 'Type the disk password to continue')")"
+	printf '%s\n' 'echo ""'
+	printf 'echo "%s"\n' "$(center "$(gettext -- 'It does not appear while you type')")"
+	printf '%s\n' 'echo ""'
+	printf 'echo -n "%s"\n' "$prompt_indent"
+	# Unlock this volume only: -a would also prompt for unrelated LUKS disks.
+	# Clearing the artwork lets the boot menu render with its own theme.
+	# The prefix needs the device in parentheses, exactly like grub.cfg writes
+	# it: root holds a bare name, so "$root/..." would not resolve and GRUB
+	# would unlock the disk and then drop to its command prompt.
+	printf '%s\n' "cryptomount -u $crypt_uuid" 'background_image' 'clear' \
+		"set root=cryptouuid/$crypt_uuid" "set prefix=(\$root)${subvolume:-}/boot/grub" \
+		'insmod normal' 'normal'
+} >"$workspace/early-grub.cfg" || bail 'the early configuration could not be written'
+
+# GRUB parses this before any module is available; a syntax error there is an
+# unbootable machine.
+grub-script-check "$workspace/early-grub.cfg" >/dev/null 2>&1 ||
+	bail 'the generated early configuration is not valid GRUB script'
+
+# grub-script-check only sees syntax. A prefix that resolves to nothing is
+# still valid script and boots straight into the grub> prompt, so check that
+# the device really is spelled the way GRUB expects it.
+grep -qF "set prefix=(\$root)${subvolume:-}/boot/grub" "$workspace/early-grub.cfg" ||
+	bail 'the generated prefix is not in the (device)/path form GRUB resolves'
+
+tar cf "$workspace/memdisk.tar" -C "$workspace" font.pf2 background.png locale ||
+	bail 'the memdisk could not be packed'
+
+# Everything used before /boot is reachable has to live in the image: the
+# graphics stack for the prompt, the crypto stack for LUKS2 with Argon2id and
+# every filesystem the installer can put /boot on.
+grub-mkimage -c "$workspace/early-grub.cfg" -o "$workspace/grubx64.efi" \
+	-O x86_64-efi -m "$workspace/memdisk.tar" -p "$prefix" \
+	memdisk tar configfile normal search search_fs_uuid part_gpt part_msdos \
+	btrfs ext2 xfs f2fs fat cryptodisk luks luks2 argon2 pbkdf2 \
+	gcry_rijndael gcry_sha256 gcry_sha512 \
+	all_video efi_gop efi_uga video_bochs video_cirrus video \
+	gfxterm gfxterm_background font png gettext \
+	echo test loadenv linux halt reboot minicmd 2>/dev/null ||
+	bail 'grub-mkimage failed'
+
+# An image that cannot unlock the disk is worse than no theme: check that the
+# crypto path and the prefix really made it in before trusting this file.
+for marker in cryptodisk luks2 argon2 btrfs ext2 "$crypt_uuid" "$signature"; do
+	grep -aqF "$marker" "$workspace/grubx64.efi" ||
+		bail "the generated image is missing $marker"
+done
+image_size=$(stat -c '%s' "$workspace/grubx64.efi")
+((image_size > 400000)) || bail 'the generated image is implausibly small'
+
+# Keep the stock image as the way back, but never overwrite that backup with
+# one of ours: after the first run the target is already themed.
+if ! grep -aqF "$signature" "$target"; then
+	cp -f "$target" "$target.pre-biglinux" || bail 'the current image could not be backed up'
+fi
+cp -f "$workspace/grubx64.efi" "$target" || bail 'the themed image could not be installed'
+
+# The removable fallback is only ours to replace when it is also GRUB.
+fallback=$esp/EFI/boot/bootx64.efi
+if [[ -f $fallback ]] && grep -aqF grub "$fallback"; then
+	if ! grep -aqF "$signature" "$fallback"; then
+		cp -f "$fallback" "$fallback.pre-biglinux"
+	fi
+	cp -f "$workspace/grubx64.efi" "$fallback"
+fi
+
+printf '%s\n' "grub-theme-biglinux-crypt: encryption prompt written to $target"

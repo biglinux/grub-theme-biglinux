@@ -1,0 +1,15 @@
+msgid ""
+msgstr ""
+"Content-Type: text/plain; charset=UTF-8\n"
+
+msgid "This disk is protected by encryption"
+msgstr "Este disco está protegido por criptografia"
+
+msgid "Type the disk password to continue"
+msgstr "Digite a senha do disco para continuar"
+
+msgid "It does not appear while you type"
+msgstr "Ela não aparece enquanto você digita"
+
+msgid "Encryption password: "
+msgstr "Senha da criptografia: "

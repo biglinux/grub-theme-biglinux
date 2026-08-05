@@ -1,0 +1,15 @@
+msgid ""
+msgstr ""
+"Content-Type: text/plain; charset=UTF-8\n"
+
+msgid "This disk is protected by encryption"
+msgstr "Disk ini dilindungi dengan enkripsi"
+
+msgid "Type the disk password to continue"
+msgstr "Ketik kata sandi disk untuk melanjutkan"
+
+msgid "It does not appear while you type"
+msgstr "Kata sandi tidak tampil saat diketik"
+
+msgid "Encryption password: "
+msgstr "Kata sandi enkripsi: "

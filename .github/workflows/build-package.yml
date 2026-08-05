@@ -20,6 +20,19 @@ jobs:
 
     # Steps represent a sequence of tasks that will be executed as part of the job
     steps:
+      # The crypt script rebuilds the GRUB core image on every grub upgrade.
+      # A broken script means an unthemed prompt at worst, but it is cheap to
+      # catch mistakes before publishing the package.
+      - uses: actions/checkout@v4
+
+      - name: Check the hook scripts
+        shell: bash
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y shellcheck gettext
+          shellcheck grub-theme-biglinux/usr/share/libalpm/scripts/*
+          for catalog in locale/*.po; do msgfmt -o /dev/null "$catalog"; done
+
       - name: Send Hooks BigLinux Build Package
         shell: bash
         run: |

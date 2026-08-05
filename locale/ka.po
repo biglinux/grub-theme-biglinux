@@ -1,0 +1,15 @@
+msgid ""
+msgstr ""
+"Content-Type: text/plain; charset=UTF-8\n"
+
+msgid "This disk is protected by encryption"
+msgstr "ეს დისკი დაცულია დაშიფვრით"
+
+msgid "Type the disk password to continue"
+msgstr "გასაგრძელებლად შეიყვანეთ დისკის პაროლი"
+
+msgid "It does not appear while you type"
+msgstr "აკრეფისას ის არ ჩანს"
+
+msgid "Encryption password: "
+msgstr "დაშიფვრის პაროლი: "

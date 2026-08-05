@@ -1,0 +1,15 @@
+msgid ""
+msgstr ""
+"Content-Type: text/plain; charset=UTF-8\n"
+
+msgid "This disk is protected by encryption"
+msgstr "ਇਹ ਡਿਸਕ ਇਨਕ੍ਰਿਪਸ਼ਨ ਨਾਲ ਸੁਰੱਖਿਅਤ ਹੈ"
+
+msgid "Type the disk password to continue"
+msgstr "ਜਾਰੀ ਰੱਖਣ ਲਈ ਡਿਸਕ ਦਾ ਪਾਸਵਰਡ ਲਿਖੋ"
+
+msgid "It does not appear while you type"
+msgstr "ਲਿਖਣ ਵੇਲੇ ਇਹ ਨਹੀਂ ਦਿਖਦਾ"
+
+msgid "Encryption password: "
+msgstr "ਇਨਕ੍ਰਿਪਸ਼ਨ ਪਾਸਵਰਡ: "

@@ -1,0 +1,15 @@
+msgid ""
+msgstr ""
+"Content-Type: text/plain; charset=UTF-8\n"
+
+msgid "This disk is protected by encryption"
+msgstr "Diski eno ekuumibwa n'okusiba"
+
+msgid "Type the disk password to continue"
+msgstr "Wandiika ekisumuluzo kya diski osobole okweyongerayo"
+
+msgid "It does not appear while you type"
+msgstr "Tekirabika ng'owandiika"
+
+msgid "Encryption password: "
+msgstr "Ekisumuluzo ky'okusiba: "

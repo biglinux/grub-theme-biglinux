@@ -1,0 +1,15 @@
+msgid ""
+msgstr ""
+"Content-Type: text/plain; charset=UTF-8\n"
+
+msgid "This disk is protected by encryption"
+msgstr "Šis diskas apsaugotas šifravimu"
+
+msgid "Type the disk password to continue"
+msgstr "Norėdami tęsti, įveskite disko slaptažodį"
+
+msgid "It does not appear while you type"
+msgstr "Jis nerodomas rašant"
+
+msgid "Encryption password: "
+msgstr "Šifravimo slaptažodis: "

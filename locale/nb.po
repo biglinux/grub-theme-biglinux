@@ -1,0 +1,15 @@
+msgid ""
+msgstr ""
+"Content-Type: text/plain; charset=UTF-8\n"
+
+msgid "This disk is protected by encryption"
+msgstr "Denne disken er beskyttet med kryptering"
+
+msgid "Type the disk password to continue"
+msgstr "Skriv inn diskpassordet for å fortsette"
+
+msgid "It does not appear while you type"
+msgstr "Det vises ikke mens du skriver"
+
+msgid "Encryption password: "
+msgstr "Krypteringspassord: "

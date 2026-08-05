@@ -1,0 +1,15 @@
+msgid ""
+msgstr ""
+"Content-Type: text/plain; charset=UTF-8\n"
+
+msgid "This disk is protected by encryption"
+msgstr "Tämä levy on suojattu salauksella"
+
+msgid "Type the disk password to continue"
+msgstr "Kirjoita levyn salasana jatkaaksesi"
+
+msgid "It does not appear while you type"
+msgstr "Se ei näy kirjoittaessasi"
+
+msgid "Encryption password: "
+msgstr "Salauksen salasana: "

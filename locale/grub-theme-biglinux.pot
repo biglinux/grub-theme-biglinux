@@ -1,0 +1,16 @@
+# Translations for the GRUB encryption prompt.
+msgid ""
+msgstr ""
+"Content-Type: text/plain; charset=UTF-8\n"
+
+msgid "This disk is protected by encryption"
+msgstr ""
+
+msgid "Type the disk password to continue"
+msgstr ""
+
+msgid "It does not appear while you type"
+msgstr ""
+
+msgid "Encryption password: "
+msgstr ""

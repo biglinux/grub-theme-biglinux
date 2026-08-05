@@ -1,0 +1,15 @@
+msgid ""
+msgstr ""
+"Content-Type: text/plain; charset=UTF-8\n"
+
+msgid "This disk is protected by encryption"
+msgstr "Esti discu ta protexíu con cifráu"
+
+msgid "Type the disk password to continue"
+msgstr "Escribi la contraseña del discu pa siguir"
+
+msgid "It does not appear while you type"
+msgstr "Nun apaez mentanto escribes"
+
+msgid "Encryption password: "
+msgstr "Contraseña de cifráu: "

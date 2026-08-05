@@ -1,0 +1,15 @@
+msgid ""
+msgstr ""
+"Content-Type: text/plain; charset=UTF-8\n"
+
+msgid "This disk is protected by encryption"
+msgstr "Đĩa này được bảo vệ bằng mã hóa"
+
+msgid "Type the disk password to continue"
+msgstr "Nhập mật khẩu đĩa để tiếp tục"
+
+msgid "It does not appear while you type"
+msgstr "Mật khẩu không hiện khi bạn gõ"
+
+msgid "Encryption password: "
+msgstr "Mật khẩu mã hóa: "

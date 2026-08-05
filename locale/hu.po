@@ -1,0 +1,15 @@
+msgid ""
+msgstr ""
+"Content-Type: text/plain; charset=UTF-8\n"
+
+msgid "This disk is protected by encryption"
+msgstr "Ez a lemez titkosítással védett"
+
+msgid "Type the disk password to continue"
+msgstr "Írja be a lemez jelszavát a folytatáshoz"
+
+msgid "It does not appear while you type"
+msgstr "Gépelés közben nem jelenik meg"
+
+msgid "Encryption password: "
+msgstr "Titkosítási jelszó: "

@@ -1,0 +1,15 @@
+msgid ""
+msgstr ""
+"Content-Type: text/plain; charset=UTF-8\n"
+
+msgid "This disk is protected by encryption"
+msgstr "此磁盘已加密保护"
+
+msgid "Type the disk password to continue"
+msgstr "请输入磁盘密码以继续"
+
+msgid "It does not appear while you type"
+msgstr "输入时不会显示"
+
+msgid "Encryption password: "
+msgstr "加密密码: "

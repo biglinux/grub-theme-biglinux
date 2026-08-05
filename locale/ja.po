@@ -1,0 +1,15 @@
+msgid ""
+msgstr ""
+"Content-Type: text/plain; charset=UTF-8\n"
+
+msgid "This disk is protected by encryption"
+msgstr "このディスクは暗号化で保護されています"
+
+msgid "Type the disk password to continue"
+msgstr "続けるにはディスクのパスワードを入力してください"
+
+msgid "It does not appear while you type"
+msgstr "入力中は表示されません"
+
+msgid "Encryption password: "
+msgstr "暗号化パスワード: "

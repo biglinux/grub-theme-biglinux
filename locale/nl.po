@@ -1,0 +1,15 @@
+msgid ""
+msgstr ""
+"Content-Type: text/plain; charset=UTF-8\n"
+
+msgid "This disk is protected by encryption"
+msgstr "Deze schijf is beveiligd met versleuteling"
+
+msgid "Type the disk password to continue"
+msgstr "Typ het schijfwachtwoord om door te gaan"
+
+msgid "It does not appear while you type"
+msgstr "Het verschijnt niet tijdens het typen"
+
+msgid "Encryption password: "
+msgstr "Versleutelingswachtwoord: "

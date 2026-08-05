@@ -1,0 +1,11 @@
+[Trigger]
+Type = Package
+Operation = Install
+Operation = Upgrade
+Target = grub
+Target = grub-theme-biglinux
+
+[Action]
+Description = Applying the BigLinux theme to the GRUB encryption prompt...
+When = PostTransaction
+Exec = /usr/share/libalpm/scripts/grub-theme-biglinux-crypt
