@@ -1,11 +1,13 @@
 # GRUB2 gfxmenu Linux theme
 # Designed for Rafael Ruscher <rruscher@gmail.com>
+#
+# The card, the font and the proportions match the encryption prompt the core
+# image draws right before this menu, so the two screens read as one product.
 # Global Property
 title-text: ""
 desktop-image: "background.png"
 desktop-color: "#000000"
-terminal-font: "Terminus Bold 22"
-terminal-box: "terminal_box_*.png"
+terminal-font: "Terminus Regular 20"
 terminal-left: "0"
 terminal-top: "0"
 terminal-width: "100%"
@@ -22,41 +24,41 @@ terminal-border: "0"
     width = 100
     show_text = true
     text = ""
-    font = "Terminus Bold 22"
+    font = "Terminus Regular 20"
     bar_style       = "progress_*.png"
     highlight_style = "progress_hl_*.png"
 }
 
 # Logo
 + image {
-    top = 8%
+    top = 13%
     left = 50%-50
     file = "biglinux-grub.png"
 }
 
-# Show the boot menu
+# Show the boot menu, on the card the encryption prompt also uses
 + boot_menu {
-    left = 50%-400
-    top = 28%
-    width = 800
-    height = 62%
-  
-    item_font = "Terminus Bold 22"
+    left = 16%
+    top = 32%
+    width = 68%
+    height = 44%
+
+    item_font = "Terminus Regular 20"
     item_color = "#ececec"
-  
-    selected_item_color = "#ececec"
-  
-    icon_width = 32
-    icon_height = 32
-  
-    item_icon_space = 20
+
+    selected_item_color = "#ffffff"
+
+    icon_width = 24
+    icon_height = 24
+
+    item_icon_space = 14
     item_height = 36
-  
-    item_padding = 5
-    item_spacing = 5
-  
+
+    item_padding = 14
+    item_spacing = 4
+
     selected_item_pixmap_style = "select_*.png"
-  
+
     menu_pixmap_style = "boot_menu_*.png"
     scrollbar = true
     scrollbar_width = 20

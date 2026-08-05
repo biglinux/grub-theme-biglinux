@@ -1,6 +1,7 @@
 [Trigger]
 Type = Package
 Operation = Install
+Operation = Upgrade
 Target =  grub-theme-biglinux
 
 [Action]
