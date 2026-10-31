@@ -12,8 +12,9 @@ pkgdesc="Grub theme"
 # belong to other packages. terminus-font owns the font it embeds: without it
 # the script finds none, gives up, and the whole feature silently never
 # happens on that machine.
-depends=('grub' 'terminus-font' 'cryptsetup' 'gettext' 'util-linux' 'tar' 'awk')
+depends=('grub' 'update-grub' 'terminus-font' 'cryptsetup' 'gettext' 'util-linux' 'tar' 'awk')
 optdepends=('sbctl: sign the rebuilt bootloader on a Secure Boot machine')
+backup=('etc/default/grub.d/biglinux.cfg')
 source=("git+https://github.com/biglinux/grub-theme-biglinux.git")
 md5sums=(SKIP)
 
@@ -21,6 +22,8 @@ md5sums=(SKIP)
 package() {
     cp -r "${srcdir}/grub-theme-biglinux/grub-theme-biglinux/boot/" "${pkgdir}/"
     cp -r "${srcdir}/grub-theme-biglinux/grub-theme-biglinux/usr/" "${pkgdir}/"
+    install -Dm644 "${srcdir}/grub-theme-biglinux/grub-theme-biglinux/etc/default/grub.d/biglinux.cfg" \
+        "${pkgdir}/etc/default/grub.d/biglinux.cfg"
 
     # git tracks the theme and its artwork as executable; only scripts are.
     find "${pkgdir}/boot" -type f -exec chmod 0644 {} +
